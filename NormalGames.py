@@ -111,7 +111,8 @@ class DiscreteDecisionSet(DecisionSet):
         # Check if strategy vector (which is discrete PDF) is normalized
         # If it's not - raise a warning and normalize
         if not math.isclose(np.sum(self._strategy), 1):
-            warnings.warn("Strategy on discrete set is not normalized")
+            warnings.warn(
+                "strat {} on DDS not normalized".format(self._strategy))
             self._strategy = self.normalize_strategy(self._strategy)
 
     # Funciton to initialize strategy
