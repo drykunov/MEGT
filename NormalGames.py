@@ -22,10 +22,10 @@ class PrisonersDilemma(object):
 
          [[-1, 0],
           [-3, -2]]])
-    players = ["Player 1", "Player 2"]
+    players = ["Player_1", "Player_2"]
     allowed_moves = {}
-    allowed_moves["Player 1"] = {"Cooperate": 0, "Defect": 1}
-    allowed_moves["Player 2"] = {"Cooperate": 0, "Defect": 1}
+    allowed_moves["Player_1"] = {"Cooperate": 0, "Defect": 1}
+    allowed_moves["Player_2"] = {"Cooperate": 0, "Defect": 1}
 
     payoffs_matrix.flags.writeable = False
 
@@ -48,7 +48,7 @@ class PrisonersDilemma(object):
                     pl
                 ))
 
-            # Checking if provided move could be hadled by the model
+            # Checking if provided move could be handled by the model
             if strat[0] not in self.allowed_moves[pl]:
                 raise Exception("Move '{}' for '{}' not allowed".format(
                     strat[0], pl
