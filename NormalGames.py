@@ -312,3 +312,16 @@ class AgentSet(object):
             strategy[pl.name] = pl.get_strategy()
         return strategy
 
+    # Useful representations for simplicity of use ---------------------------
+
+    def __len__(self):
+        return len(self.players)
+
+    def __repr__(self):
+        output = []
+        output.append("AgentSet / {} agents:".format(len(self.players)))
+        for pl in self.players:
+            output.append(textwrap.indent(repr(pl), '  '))
+        return "\n".join(output)
+
+
