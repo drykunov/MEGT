@@ -325,3 +325,173 @@ class AgentSet(object):
         return "\n".join(output)
 
 
+class SubPopulation(object):
+    """SubPopulation abstraction consisting of the same decision_set"""
+
+    def __init__(self, decision_set, popsize):
+        self._init_ds = copy.deepcopy(decision_set)
+        self._popsize = popsize
+        self._population = []
+        self._population.append(copy.deepcopy(decision_set))
+        self.pl_type = decision_set.pl_type
+
+    def add_member(self, ds):
+        if not isinstance(ds, DecisionSet):
+            raise ValueError("subp new member should of DecisionSet class")
+        if ds.decision_set != self._init_ds.decision_set:
+            raise ValueError("new member type doesn't match subp type")
+        if len(self._population) + 1 > self._popsize:
+            raise OverflowError("cannot add new member: subp size overflow")
+
+        self._population.append(copy.deepcopy(ds))
+
+    def unfold_population(self):
+        for i in range(len(self._population), self._popsize):
+            self.add_member(self[0])
+
+    def mutate(self, *args, **kwargs):
+        for ds in self:
+            ds.mutate(*args, **kwargs)
+
+    def __len__(self):
+        return len(self._population)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            output = copy.copy(self)
+            output._population = self._population[key]
+            return output
+        return self._population[key]
+
+    def __repr__(self):
+        output = []
+        output.append("Subpop / size {} of {} / {} / {}".format(len(self),
+                                                                self._popsize, self.pl_type, self._init_ds.decision_set))
+        for ds in self._population:
+            output.append(textwrap.indent(repr(ds), "  "))
+
+        return "\n".join(output)
+
+
+class Population(object):
+    """To-do: Aggregation of SubPopulations to manage them in tractable way."""
+
+    def __init__(self, agentset=AgentSet(), popsize=20, mutation_magnitude=0.03):
+        self.agentset = agentset
+        self._pl_count = len(self.agentset)
+        self._population = []
+        self._mt_magnitude = mutation_magnitude
+        self._popsize = popsize
+        self.init_population()
+
+    def init_population(self):
+        """Create a dcitionary with each ds of each player putted under different dictionary key."""
+
+        for pl in self.agentset.players:
+            for ds in pl.decision_space:
+                if ds.pl_type != pl.name:
+                    warnings.warn("pl_type of\n{} of {} not in sync".format(ds, pl))
+                    ds.set_pl_type(pl)
+
+                self._population.append(SubPopulation(decision_set=ds,
+                                                      popsize=self._popsize))
+        self.unfold_population()
+
+    def unfold_population(self):
+        """"Extend popTable provided by makePopulationTable
+        method to the size specified by _popsize attribute."""
+
+        for subp in self:
+            subp.unfold_population()
+
+    def mutate(self, *args, **kwargs):
+        """Mutate every DS in the population
+        calling mutate method on them."""
+        # print(self._population)
+        for subp in self:
+            subp.mutate(*args, **kwargs)
+        # print(self._population)
+
+    def __getitem__(self, key):
+        if isinstance(key, slice):
+            output = copy.copy(self)
+            output._population = self._population[key]
+            return output
+        return self._population[key]
+
+    def __repr__(self):
+        output = []
+        output.append(
+            "Population : (size = {} / subpopulations = {})".format(self._popsize, len(self._population)))
+
+        for subp in self._population:
+            # output.append("  Subpop {}".format(ds_at))
+            # for ds in subp:
+            output.append(textwrap.indent(repr(subp), "  "))
+
+        return "\n".join(output)
+
+
+class EvolutionaryEquilibrium(object):
+    """Utils to deal with evolutionary search for equilibrium states."""
+
+    def __init__(self, agentset=None, model=None,
+                 popsize=6, generations=10,
+                 mutation_magnitude=0.03, npairs=5, ngames=2):
+        self.agentset = copy.deepcopy(agentset)
+        self.model = copy.deepcopy(model)
+        self._mt_magnitude = mutation_magnitude
+        self._npairs = npairs
+        self._ngames = ngames
+        self._popsize = popsize
+        self.pop = Population(agentset=self.agentset,
+                              popsize=self._popsize,
+                              mutation_magnitude=self._mt_magnitude)
+
+    @staticmethod
+    def make_agentset(population, agentset):
+        if not isinstance(population, Population):
+            raise ValueError("population must be inst of Population()")
+        if not isinstance(agentset, AgentSet):
+            raise ValueError("agentset must be inst of AgentSet()")
+
+
+        # ref_players_dict = {pl.name: pl for pl in agentset.players}
+        output_players = OrderedDict()
+
+        for pl in agentset.players:
+            output_players[pl.name] = Player(pl.name, [])
+
+        for subp in population:
+            output_players[subp.pl_type].decision_space.append(subp[0])
+        
+        output = AgentSet(output_players.values())
+
+        return output
+
+    # dummy funciton to be written
+    def calculate_fitness(self, npairs=self._npairs, ngames=self._ngames):
+        # matchings = self.make_matchings(npairs)
+        # for matching in matchings:
+        #     self.calculate_payoffs(matching, ngames)
+        pass
+
+    # dummy function to be written
+    def make_matchings(self, npairs):
+        # for subp in self.pop:
+        pass
+
+    def __repr__(self):
+        output = []
+        output.append("EvolutionaryEquilibrium(popsize={}, mutation_magnitude={})\n".format(self._popsize,
+                                                                                            self._mt_magnitude))
+        # output.append("")
+        output.append("AgentSet:")
+        output.append("---------")
+        output.append(repr(self.agentset))
+        output.append("Population:")
+        output.append("---------")
+        output.append(repr(self.pop))
+        return "\n".join(output)
+
+        pass
