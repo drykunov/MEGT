@@ -11,6 +11,9 @@
 import numpy as np
 import warnings
 import math
+import copy
+import textwrap
+from collections import OrderedDict
 
 
 class PrisonersDilemma(object):
@@ -69,15 +72,36 @@ class PrisonersDilemma(object):
 
 
 class DecisionSet(object):
-    pass
+    def __init__(self):
+        self.pl_type = None
+        self.type = "Basic"
+        self.fitness = None
+
+    def set_pl_type(self, player):
+        self.pl_type = player.name
 
 
 class DiscreteDecisionSet(DecisionSet):
     # decision_set is coded as discrete set of items to choose
-    def __init__(self, decision_set):
+    def __init__(self, decision_set, strategy=None):
+        """Initialize DDS.
+
+        Parameters
+        ----------
+        decision_set : iterable
+            Iterable of strings with names of possible decisions in the set.
+        strategy : list, optional
+            List of strategies over decision_set.
+            len('strategy') should equal to len('decision_set')
+
+        """
+        super().__init__()
         self.type = "Discrete"
         self.decision_set = decision_set
-        self.init_strategy()
+        if strategy:
+            self.strategy = strategy
+        else:
+            self.init_strategy()
 
     ##
     # This block of code is dedicated to handling strategy
@@ -85,6 +109,9 @@ class DiscreteDecisionSet(DecisionSet):
 
     # Internal method to normalize vectors (used to normalize discr PDF)
     def normalize_strategy(self, vector):
+        if np.allclose(vector, np.zeros(len(vector))):
+            vector = np.ones(len(vector))
+
         return vector / np.sum(vector)
 
     # Defining strategy property
@@ -124,6 +151,44 @@ class DiscreteDecisionSet(DecisionSet):
     def make_decision(self):
         choice = np.random.choice(self.decision_set, p=self._strategy)
         return choice
+
+    def mutate(self, magnitude):
+        """Simple wrapper to internal mutate method."""
+        self._mutate_all(magnitude)
+
+    def _mutate_all(self, magnitude):
+        """Mutate a DDS without output."""
+
+        strat_candidates = self._strategy + np.random.normal(0, magnitude,
+                                                             len(self._strategy))
+        strat_candidates = np.clip(strat_candidates, 0, 1)
+        self.strategy = self.normalize_strategy(strat_candidates)
+
+    def _mutate_opt(self, magnitude):
+        """Mutate a DDS without output."""
+
+        coded_strat = self._strategy[:-1]
+
+        strat_candidates = coded_strat + np.random.normal(0, magnitude,
+                                                          len(coded_strat))
+        # print(type(strat_candidates), strat_candidates)
+
+        strat_candidates = np.clip(strat_candidates, 0, 1)
+        # print(type(strat_candidates), strat_candidates)
+
+        strat_candidates = np.concatenate((strat_candidates,
+                                           1 - np.sum(strat_candidates,
+                                                      keepdims=True)))
+
+        strat_candidates[-1] = np.clip(strat_candidates[-1], 0, 1)
+        self.strategy = self.normalize_strategy(strat_candidates)
+
+    def __repr__(self):
+        output = []
+        output.append(
+            "DDS / {} / {} choices:".format(self.pl_type, len(self.decision_set)))
+        output.append(repr(self.strategy))
+        return ' '.join(output)
 
 
 class CompactDecisionSet(DecisionSet):
