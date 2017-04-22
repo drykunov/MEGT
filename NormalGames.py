@@ -231,13 +231,22 @@ class Player(object):
 
     Player class includes tools and methods to operate with sets of
     decision sets binded togethere under an umbrella of a player type.
+
+    Parameters
+    ----------
+    name : string
+        Player type
+    deicison_space : list
+        List of instances of DeicisionSet class
     """
 
     # decision_space expected to be an iterable object
     # Each element of decision_space expected to be an instance of DecisionSet
-    def __init__(self, name, decision_space=[]):
+    def __init__(self, name, decision_space):
         self.name = name
         self.decision_space = decision_space
+        for ds in decision_space:
+            ds.set_pl_type(self)
 
     # It might be useful in future if there would be no init_strategy in DSes
     def init_strategy(self):
@@ -257,6 +266,15 @@ class Player(object):
         for ds in self.decision_space:
             strategy.append(ds.strategy)
         return strategy
+
+    def __repr__(self):
+        output = []
+        output.append("{} / {} decision sets:".format(self.name,
+                                                      len(self.decision_space)))
+        for ds in self.decision_space:
+            output.append(textwrap.indent(repr(ds), "    "))
+        output.append("")
+        return "\n".join(output)
 
 
 class AgentSet(object):
