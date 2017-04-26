@@ -588,6 +588,18 @@ class SubPopulation(object):
             return output
         return self._population[key]
 
+    def __delitem__(self, key):
+        if isinstance(key, slice):
+            del(self._population[key])
+        else:
+            del(self._population[key])
+
+    def __str__(self):
+        output = []
+        output.append("Subpop / size {} of {} / {} / {}".format(len(self),
+                                                                self._popsize, self.pl_type, self._init_ds.decision_set))
+        return "\n".join(output)
+
     def __repr__(self):
         output = []
         output.append("Subpop / size {} of {} / {} / {}".format(len(self),
