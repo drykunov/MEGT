@@ -265,7 +265,7 @@ class DiscreteDecisionSet(DecisionSet):
 
         """
         super().__init__()
-        self.type = "Discrete"
+        self.type = "DDS"
         self.decision_set = decision_set
         if strategy:
             self.strategy = strategy
