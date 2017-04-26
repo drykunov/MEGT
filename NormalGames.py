@@ -527,6 +527,9 @@ class AgentSet(object):
 
     # Useful representations for simplicity of use ---------------------------
 
+    def __getitem__(self, key):
+        return self.players[key]
+
     def __len__(self):
         return len(self.players)
 
