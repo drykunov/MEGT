@@ -244,7 +244,9 @@ class DecisionSet(object):
     def __init__(self):
         self.pl_type = None
         self.type = "Basic"
-        self.fitness = None
+        self.fitness = np.nan
+        self.fitness_averaged = False
+        self.evals = None
 
     def set_pl_type(self, player):
         self.pl_type = player.name
@@ -323,13 +325,18 @@ class DiscreteDecisionSet(DecisionSet):
 
     def mutate(self, magnitude):
         """Simple wrapper to internal mutate method."""
+        self.fitness = np.nan
+        self.fitness_averaged = False
+        self.evals = None
         self._mutate_all(magnitude)
 
     def _mutate_all(self, magnitude):
         """Mutate a DDS without output."""
-
-        strat_candidates = self._strategy + np.random.normal(0, magnitude,
-                                                             len(self._strategy))
+        if not math.isclose(magnitude, 0):
+            strat_candidates = self._strategy + np.random.normal(0, magnitude,
+                                                                 len(self._strategy))
+        else:
+            strat_candidates = self._strategy
         strat_candidates = np.clip(strat_candidates, 0, 1)
         self.strategy = self.normalize_strategy(strat_candidates)
 
