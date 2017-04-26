@@ -613,26 +613,31 @@ class SubPopulation(object):
 class Population(object):
     """To-do: Aggregation of SubPopulations to manage them in tractable way."""
 
-    def __init__(self, agentset=AgentSet(), popsize=20, mutation_magnitude=0.03):
+    def __init__(self, agentset=AgentSet(), init_uniform=True, popsize=20, mutation_magnitude=0.03):
         self.agentset = agentset
         self._pl_count = len(self.agentset)
         self._population = []
         self._mt_magnitude = mutation_magnitude
         self._popsize = popsize
-        self.init_population()
+        self.init_population(uniform=init_uniform)
 
-    def init_population(self):
+    def init_population(self, uniform):
         """Create a dcitionary with each ds of each player putted under different dictionary key."""
 
         for pl in self.agentset.players:
             for ds in pl.decision_space:
                 if ds.pl_type != pl.name:
-                    warnings.warn("pl_type of\n{} of {} not in sync".format(ds, pl))
+                    warnings.warn(
+                        "pl_type of\n{} of {} not in sync".format(ds, pl))
                     ds.set_pl_type(pl)
 
-                self._population.append(SubPopulation(decision_set=ds,
+                self._population.append(SubPopulation(decision_set=copy.deepcopy(ds),
                                                       popsize=self._popsize))
-        self.unfold_population()
+        if uniform:
+            for subp in self:
+                subp.init_uniform_population()
+        else:
+            self.unfold_population()
 
     def unfold_population(self):
         """"Extend popTable provided by makePopulationTable
