@@ -209,36 +209,36 @@ class RockPaperScissors(NormalFormGame):
 class Chicken(NormalFormGame):
     players_count = 2
     payoffs_matrix = np.array(
-    [[[0, 7],
-      [2, 6]],
+        [[[0, 7],
+          [2, 6]],
 
-     [[0, 2],
-      [7, 6]]])
+            [[0, 2],
+             [7, 6]]])
     players = ["Player_1", "Player_2"]
     allowed_moves = {}
     allowed_moves["Player_1"] = {"Dare": 0, "Chicken": 1}
     allowed_moves["Player_2"] = {"Dare": 0, "Chicken": 1}
 
-
     def __init__(self):
         pass
+
 
 class SwerveStay(NormalFormGame):
     players_count = 2
     payoffs_matrix = np.array(
-    [[[0, -1],
-      [1, -20]],
+        [[[0, -1],
+          [1, -20]],
 
-     [[0, 1],
-      [-1, -20]]])
+            [[0, 1],
+             [-1, -20]]])
     players = ["Player_1", "Player_2"]
     allowed_moves = {}
     allowed_moves["Player_1"] = {"Swerve": 0, "Stay": 1}
     allowed_moves["Player_2"] = {"Swerve": 0, "Stay": 1}
 
-
     def __init__(self):
         pass
+
 
 class DecisionSet(object):
     def __init__(self):
