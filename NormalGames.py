@@ -545,10 +545,10 @@ class SubPopulation(object):
     """SubPopulation abstraction consisting of the same decision_set"""
 
     def __init__(self, decision_set, popsize):
-        self._init_ds = copy.deepcopy(decision_set)
+        self._init_ds = decision_set
         self._popsize = popsize
         self._population = []
-        self._population.append(copy.deepcopy(decision_set))
+        self._population.append(decision_set)
         self.pl_type = decision_set.pl_type
 
     def add_member(self, ds):
@@ -564,6 +564,15 @@ class SubPopulation(object):
     def unfold_population(self):
         for i in range(len(self._population), self._popsize):
             self.add_member(self[0])
+
+    def init_uniform_population(self):
+        for i in range(len(self._population), self._popsize):
+            logging.debug("Adding new random member to subp: current size {} targeted {}".format(
+                len(self._population), self._popsize))
+            new_member = copy.copy(self[0])
+            new_member.init_strategy()
+            self.add_member(new_member)
+            logging.debug("Added new member")
 
     def mutate(self, *args, **kwargs):
         for ds in self:
