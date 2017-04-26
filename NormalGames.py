@@ -363,10 +363,27 @@ class DiscreteDecisionSet(DecisionSet):
         strat_candidates[-1] = np.clip(strat_candidates[-1], 0, 1)
         self.strategy = self.normalize_strategy(strat_candidates)
 
-    def __repr__(self):
+    def __str__(self):
         output = []
         output.append(
-            "DDS / {} / {} choices:".format(self.pl_type, len(self.decision_set)))
+            "DDS / {} / {} fit / {} choices:".format(self.pl_type,
+                                                     self.fitness,
+                                                     len(self.decision_set)))
+        output.append(repr(self.decision_set))
+        return ' '.join(output)
+
+    def __repr__(self):
+        output = []
+        if self.fitness_averaged:
+            avg_sign = "AVG"
+        else:
+            avg_sign = "RAW"
+
+        output.append(
+            "DDS / {} / {:.5f} fit - {} / {} evals:".format(self.pl_type,
+                                                            self.fitness,
+                                                            avg_sign,
+                                                            self.evals))
         output.append(repr(self.strategy))
         return ' '.join(output)
 
