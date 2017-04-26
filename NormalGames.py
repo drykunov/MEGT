@@ -15,27 +15,32 @@ import copy
 import textwrap
 from collections import OrderedDict
 
+class Game(object):
+    """docstring for Game"""
+    def __init__(self, arg):
+        pass
 
-class PrisonersDilemma(object):
+
+class NormalFormGame(Game):
     """Basic PrisonersDilemma game 2x2"""
-    players_count = 2
+    players_count = 0
     payoffs_matrix = np.array(
-        [[[-1, -3],
-          [0, -2]],
+        [[[0, 0],
+          [0, 0]],
 
-         [[-1, 0],
-          [-3, -2]]])
+         [[0, 0],
+          [0, 0]]])
     players = ["Player_1", "Player_2"]
     allowed_moves = {}
-    allowed_moves["Player_1"] = {"Cooperate": 0, "Defect": 1}
-    allowed_moves["Player_2"] = {"Cooperate": 0, "Defect": 1}
+    allowed_moves["Player_1"] = {"Strategy_1": 0, "Strategy_2": 1}
+    allowed_moves["Player_2"] = {"Strategy_1": 0, "Strategy_2": 1}
 
-    payoffs_matrix.flags.writeable = False
+    # payoffs_matrix.flags.writeable = False
 
     def __init__(self):
         pass
 
-    def compute_payoffs(self, pl_moves):
+    def calculate_payoffs(self, pl_moves):
         # pl_moves assumed to be ordered dictionary
         # Simple check in the beginnign
         if len(pl_moves) != self.players_count:
