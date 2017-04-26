@@ -17,6 +17,7 @@ from collections import OrderedDict
 
 class Game(object):
     """docstring for Game"""
+
     def __init__(self, arg):
         pass
 
@@ -85,6 +86,7 @@ class NormalFormGame(Game):
         pl2_payoff.shape = (1,)
         return pl1_payoff, pl2_payoff
 
+
 class PrisonersDilemma(NormalFormGame):
     """Basic PrisonersDilemma game 2x2"""
     players_count = 2
@@ -107,11 +109,11 @@ class PrisonersDilemma(NormalFormGame):
 
 class StagHunt(NormalFormGame):
     payoffs_matrix = np.array(
-    [[[10, 0],
-      [8, 7]],
+        [[[10, 0],
+          [8, 7]],
 
-     [[10, 8],
-      [0, 7]]])
+            [[10, 8],
+             [0, 7]]])
     players = ["Player_1", "Player_2"]
     allowed_moves = {}
     allowed_moves["Player_1"] = {"Stag": 0, "Hunt": 1}
@@ -120,14 +122,15 @@ class StagHunt(NormalFormGame):
     def __init__(self):
         pass
 
+
 class OnlyMixed2x2(NormalFormGame):
     players_count = 2
     payoffs_matrix = np.array(
-    [[[4, 11],
-      [8, 10]],
+        [[[4, 11],
+          [8, 10]],
 
-     [[3, 0],
-      [0, 2]]])
+            [[3, 0],
+             [0, 2]]])
     players = ["Player_1", "Player_2"]
     allowed_moves = {}
     allowed_moves["Player_1"] = {"Strategy_1": 0, "Strategy_2": 1}
@@ -136,14 +139,15 @@ class OnlyMixed2x2(NormalFormGame):
     def __init__(self):
         pass
 
+
 class OnlyOne2x2(NormalFormGame):
     players_count = 2
     payoffs_matrix = np.array(
-    [[[4, 0],
-      [-1, 2]],
+        [[[4, 0],
+          [-1, 2]],
 
-     [[1, 0],
-      [0, 2]]])
+            [[1, 0],
+             [0, 2]]])
     players = ["Player_1", "Player_2"]
     allowed_moves = {}
     allowed_moves["Player_1"] = {"Strategy_1": 0, "Strategy_2": 1}
@@ -156,11 +160,11 @@ class OnlyOne2x2(NormalFormGame):
 class ChoosingSides(NormalFormGame):
     players_count = 2
     payoffs_matrix = np.array(
-    [[[10, 0],
-      [0, 10]],
+        [[[10, 0],
+          [0, 10]],
 
-     [[10, 0],
-      [0, 10]]])
+            [[10, 0],
+             [0, 10]]])
     players = ["Player_1", "Player_2"]
     allowed_moves = {}
     allowed_moves["Player_1"] = {"Left": 0, "Right": 1}
