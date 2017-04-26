@@ -477,8 +477,24 @@ class Player(object):
 class AgentSet(object):
     """Class to represent a group of players appropriate for the model."""
 
-    def __init__(self, players=[]):
-        self.players = players
+    def __init__(self, players=[], model=None):
+        if model is None:
+            self.players = players
+        # If appropriate model provided as input, initialize corresponding AgentSet()
+        elif isinstance(model, Game):
+            self._read_model(model)
+        else:
+            raise ValueError("Provided model input to AgentSet() is not legible")
+
+    def _read_model(self, model):
+        if isinstance(model, NormalFormGame):
+            self.players = []
+            for pl_type in model.players:
+                pl_dds = DiscreteDecisionSet(list(model.allowed_moves[pl_type].keys()))
+                pl = Player(pl_type, [pl_dds])
+                self.players.append(pl)
+        else:
+            raise ValueError("Model type provided for AgentSet is unsupported")
 
     def add_player(self, player):
         """Add player to the agent set.
