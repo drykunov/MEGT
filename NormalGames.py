@@ -661,6 +661,17 @@ class Population(object):
             return output
         return self._population[key]
 
+    def __setitem__(self, key, value):
+        if not isinstance(value, SubPopulation):
+            raise ValueError("assigning value must be inst of SubPopulation()")
+        self._population[key] = value
+
+    def append(self, value):
+        if not isinstance(value, SubPopulation):
+            raise ValueError("appending value must be inst of SubPopulation()")
+        self._population.append(value)
+        pass
+
     def __repr__(self):
         output = []
         output.append(
