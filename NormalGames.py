@@ -688,28 +688,70 @@ class Population(object):
 class EvolutionaryEquilibrium(object):
     """Utils to deal with evolutionary search for equilibrium states."""
 
-    def __init__(self, agentset=None, model=None,
+    def __init__(self, model, agentset=None,
                  popsize=6, generations=10,
                  mutation_magnitude=0.03, npairs=5, ngames=2):
-        self.agentset = copy.deepcopy(agentset)
+        self.__initial_params = locals()
+        del(self.__initial_params["agentset"])
+        del(self.__initial_params["model"])
+        del(self.__initial_params["self"])
+
         self.model = copy.deepcopy(model)
         self._mt_magnitude = mutation_magnitude
         self._npairs = npairs
         self._ngames = ngames
         self._popsize = popsize
-        self.pop = Population(agentset=self.agentset,
-                              popsize=self._popsize,
-                              mutation_magnitude=self._mt_magnitude)
+        self._generation = 0
+
+        if agentset is None:
+            self.agentset = AgentSet(model=model)
+            self.pop = Population(agentset=self.agentset,
+                                  init_uniform=True,
+                                  popsize=self._popsize,
+                                  mutation_magnitude=self._mt_magnitude)
+        else:
+            self.agentset = copy.deepcopy(agentset)
+            self.pop = Population(agentset=self.agentset,
+                                  init_uniform=False,
+                                  popsize=self._popsize,
+                                  mutation_magnitude=self._mt_magnitude)
+
+        self._init_log()
+
+    def _init_log(self):
+        columns = []
+        columns.append("Generation")
+        strategies_columns = []
+        payoffs_columns = []
+        for pl in self.agentset:
+            for idx, ds in enumerate(pl.decision_space):
+                for decision in ds.decision_set:
+                    str_to_append = pl.name + "-" + str(idx) + "-" + ds.type + "-" + decision
+                    strategies_columns.append(str_to_append)
+            str_to_append = pl.name + "-payoff"
+            payoffs_columns.append(str_to_append)
+
+        columns = columns + strategies_columns + payoffs_columns
+        log = pd.DataFrame(data=None, index=None, columns=columns)
+        self.log = log
+
+        self._logger = logging.getLogger("ee" + str(id(self)))
+        self._logger.setLevel(logging.DEBUG)
+        self._log_file = 'logs/ee.csv'
+        fhandler = logging.FileHandler(filename=self._log_file, mode='w')
+        fhandler.setLevel(logging.DEBUG)
+        mhandler = MemoryHandler(capacity=2000, target=fhandler)
+        self._logger_mhandler = mhandler
+        self._logger.addHandler(mhandler)
+        print("Loggers of EE:", self._logger.handlers)
 
     @staticmethod
-    def make_agentset(population, agentset):
+    def restore_agentset(population, agentset):
         if not isinstance(population, Population):
             raise ValueError("population must be inst of Population()")
         if not isinstance(agentset, AgentSet):
             raise ValueError("agentset must be inst of AgentSet()")
 
-
-        # ref_players_dict = {pl.name: pl for pl in agentset.players}
         output_players = OrderedDict()
 
         for pl in agentset.players:
@@ -717,28 +759,209 @@ class EvolutionaryEquilibrium(object):
 
         for subp in population:
             output_players[subp.pl_type].decision_space.append(subp[0])
-        
-        output = AgentSet(output_players.values())
 
+        output = AgentSet(list(output_players.values()))
         return output
 
-    # dummy funciton to be written
-    def calculate_fitness(self, npairs=self._npairs, ngames=self._ngames):
-        # matchings = self.make_matchings(npairs)
-        # for matching in matchings:
-        #     self.calculate_payoffs(matching, ngames)
+    def optimize(self, generations, dropout_rate,
+                 offspring_mt_magnitude, npairs, ngames, mt_magnitude):
+        for i in range(generations):
+            self.mutate_population(mutation_magnitude=mt_magnitude)
+            self.run_generation(npairs=npairs, ngames=ngames,
+                                mutation_magnitude=mt_magnitude)
+            self.update_generation(dropout_rate=dropout_rate,
+                                   mutation_magnitude=offspring_mt_magnitude)
+        self.run_generation(npairs=npairs, ngames=ngames,
+                            mutation_magnitude=0)
+
+        # Put all buffered logs to their destionation
+        self._logger_mhandler.flush()
+        self.log = pd.read_csv(self._log_file, names=self.log.columns)
+
+    def mutate_population(self, mutation_magnitude):
+        # Mutate every DS in population
+        for subp in self.pop:
+            subp.mutate(magnitude=mutation_magnitude)
         pass
 
-    # dummy function to be written
+    # Run evaluations for current generation
+    def run_generation(self, npairs, ngames, mutation_magnitude):
+        logging.info("GENERATION %s is being processed", self._generation)
+
+        # Update fitness values of every DS in population
+        self._update_fitness(npairs=npairs, ngames=ngames)
+        logging.info("FITNESS updated")
+
+        # Sort DSs by fitness
+        for subp in self.pop:
+            subp._population.sort(key=attrgetter("fitness"), reverse=True)
+
+    # Update population for next generation
+    def update_generation(self, dropout_rate, mutation_magnitude):
+        # Increment generation counter
+        self._generation += 1
+
+        for subp in self.pop:
+            # Calculate number of species to drop
+            to_drop = math.ceil(len(subp) * dropout_rate)
+            # Drop underperforming species
+            del subp[-to_drop:]
+
+            # Create offspring
+            old_members = set(subp)
+            for i in range(to_drop):
+                offspring = copy.deepcopy(random.sample(old_members, 1)[0])
+                offspring.mutate(magnitude=mutation_magnitude)
+                subp.add_member(offspring)
+
+    # Calculate fitness
+    def _update_fitness(self, npairs, ngames):
+        logging.info("FITNESS UPDATE requested with %s npairs and %s ngames",
+                     npairs, ngames)
+
+        # Make matchings and evaluate them
+        matchings = self.make_matchings(npairs)
+        for matching in matchings:
+            self.calculate_payoffs(matching, ngames)
+
+        # Set evals counter and fitness for every DS in population to zero
+        for subp in self.pop:
+            for ds in subp:
+                ds.evals = 0
+                ds.fitness = 0.
+                ds.fitness_averaged = False
+
+        # Update fitness for all DSs in population
+        for matching in matchings:
+            for pl in matching:
+                for ds in pl.decision_space:
+                    ds.fitness += matching.payoffs[pl.name]
+                    ds.evals += 1 * ngames
+
+        # Averaging fitness for every DS by number of evals
+        for subp in self.pop:
+            for ds in subp:
+                ds.fitness = ds.fitness / (ds.evals / ngames)
+                ds.fitness_averaged = True
+
+    # Algorithm to construct matchings of DSs to be evaluated
     def make_matchings(self, npairs):
-        # for subp in self.pop:
-        pass
+        """Construct at least npairs matchings for each DSs in current population.
+
+        OUTPUT: list of AgentSet() instances
+
+        """
+        logging.info("Running matching algorithm for %s npairs", npairs)
+
+        # Gather subpopulation lengths
+        subp_lengths = []
+        for subp in self.pop:
+            subp_lengths.append(len(subp))
+
+        logging.debug("Subp lengths are: %s", subp_lengths)
+
+        # Calculate total number of matches to be constructed
+        total_games = max(subp_lengths) * npairs
+        logging.info("Total number of matches (%s)", total_games)
+
+        for subp in self.pop:
+            # Calculate matching cap
+            # (maximum number of times DS would be included in a matching)
+            subp.matchings_cap = math.ceil(float(total_games) / len(subp))
+            logging.debug("Matching cap for %s is %s",
+                          subp, subp.matchings_cap)
+
+            # Construct sets of DSs to be matched for each subp
+            subp.ds_tobematched = set(subp)
+            logging.debug("Subp's set of DSs to be matched ready, its len (%s)",
+                          len(subp.ds_tobematched))
+
+            # Set matching counters for DSs
+            for ds in subp.ds_tobematched:
+                ds.counter = 0
+
+        def construct_matching_population():
+            # Construct temp_pop in which selected DSs would be gathered
+            temp_pop = Population(popsize=1)
+            logging.debug("construct_matching_population() called")
+
+            for subp in self.pop:
+                logging.debug("SUBP (%s to choose): %s", len(subp.ds_tobematched), subp)
+                # Randomly choose DS
+                choosen_ds = random.sample(subp.ds_tobematched, 1)[0]
+                logging.debug("Chose DS: %s", choosen_ds)
+                # Increment counter
+                choosen_ds.counter += 1
+
+                # Check if mathcings counter equal matchings cap
+                if choosen_ds.counter >= subp.matchings_cap:
+                    logging.debug("counter (%s) exceeds matching cap (%s)",
+                                  choosen_ds.counter, subp.matchings_cap)
+                    # If so, remove DS from set to be matched
+                    subp.ds_tobematched.remove(choosen_ds)
+                    logging.debug("DS excluded from DS set to be matched, its len (%s)",
+                                  len(subp.ds_tobematched))
+
+                # Add derived DS to gathering population
+                temp_pop.append(SubPopulation(choosen_ds, 1))
+            return temp_pop
+
+        # Put all matchings together
+        matchings = []
+        for i in range(total_games):
+            matching_population = construct_matching_population()
+            matching_agentset = self.restore_agentset(matching_population, self.agentset)
+            matchings.append(matching_agentset)
+        logging.debug("MATCHINGS (%s) constructed", len(matchings))
+        return matchings
+
+    # Update 'payoffs' attribute of provided AgentSet
+    def calculate_payoffs(self, matching, ngames):
+        logging.debug("PAYOFFS CALCULATION requested")
+        if not isinstance(matching, AgentSet):
+            raise ValueError("matching must be inst of AgentSet()")
+
+        payoffs_list = []
+        for i in range(ngames):
+            move = matching.make_move()
+            payoffs_list.append(self.model.calculate_payoffs(move))
+
+        output = {}
+
+        # Calculate total payoffs from ngames
+        for payoff in payoffs_list:
+            for key, value in payoff.items():
+                try:
+                    output[key] += value
+                except KeyError:
+                    output[key] = value
+
+        # Calculate average payoffs from total payoffs
+        for key, value in output.items():
+            output[key] = value / len(payoffs_list)
+
+        matching.payoffs = output
+
+        log = []
+        log.append(self._generation)
+        strategies_columns = []
+        payoffs_columns = []
+        for pl in matching:
+            for ds in pl.decision_space:
+                strategies_columns = strategies_columns + list(ds.strategy.values())
+        payoffs_columns = list(matching.payoffs.values())
+        log = log + strategies_columns + payoffs_columns
+        self._logger.debug(str(','.join(map(str, log))))
+        # log = pd.DataFrame(data=[log], index=None, columns=self.log.columns)
+        # self.log = self.log.append(log, ignore_index=True)
 
     def __repr__(self):
         output = []
-        output.append("EvolutionaryEquilibrium(popsize={}, mutation_magnitude={})\n".format(self._popsize,
-                                                                                            self._mt_magnitude))
-        # output.append("")
+        # output.append("EvolutionaryEquilibrium(popsize={}, mutation_magnitude={})".format(self._popsize,
+        # self._mt_magnitude))
+        output.append("EvolutionaryEquilibrium({})".format(self.__initial_params))
+        output.append("Generation: {}".format(self._generation))
+        output.append("")
         output.append("AgentSet:")
         output.append("---------")
         output.append(repr(self.agentset))
