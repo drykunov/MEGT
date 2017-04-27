@@ -936,10 +936,11 @@ class EvolutionaryEquilibrium(object):
             # Calculate fitness and sort species
             self._evaluate_generation(npairs=npairs, ngames=ngames)
             # Log generation
-            try:
-                self._log_gen_write(self.pop, self._generation)
-            except ValueError:
-                logging.debug("Unable to log generation - log file is closed")
+            if self._log_generations:
+                try:
+                    self._log_gen_write(self.pop, self._generation)
+                except ValueError:
+                    logging.debug("Unable to log generation - log file is closed")
 
             # Create new generation
             self._update_generation_truncation(dropout_rate=dropout_rate,
@@ -950,11 +951,12 @@ class EvolutionaryEquilibrium(object):
         # Calculate weights for the final generation
         self._evaluate_generation(npairs=npairs, ngames=ngames)
         # Log final generation
-        try:
-            self._log_gen_write(self.pop, self._generation)
-            self._log_gen_close()
-        except ValueError:
-            logging.debug("Unable to log generation - log file is closed")
+        if self._log_generations:
+            try:
+                self._log_gen_write(self.pop, self._generation)
+                self._log_gen_close()
+            except ValueError:
+                logging.debug("Unable to log generation - log file is closed")
 
 
         # Put all buffered logs to their destionation
