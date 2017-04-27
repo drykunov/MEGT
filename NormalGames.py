@@ -927,19 +927,35 @@ class EvolutionaryEquilibrium(object):
         return output
 
     def optimize(self, generations, dropout_rate,
-                 offspring_mt_magnitude, npairs, ngames, mt_magnitude):
+                 mutation_rate, npairs, ngames):
         for i in range(generations):
-            self.mutate_population(mutation_magnitude=mt_magnitude)
-            self.run_generation(npairs=npairs, ngames=ngames,
-                                mutation_magnitude=mt_magnitude)
-            self.update_generation(dropout_rate=dropout_rate,
-                                   mutation_magnitude=offspring_mt_magnitude)
-        self.run_generation(npairs=npairs, ngames=ngames,
-                            mutation_magnitude=0)
+            # Calculate fitness and sort species
+            self._evaluate_generation(npairs=npairs, ngames=ngames)
+            # Log generation
+            try:
+                self._log_gen_write(self.pop, self._generation)
+            except ValueError:
+                logging.debug("Unable to log generation - log file is closed")
+
+            # Create new generation
+            self._update_generation_truncation(dropout_rate=dropout_rate,
+                                               mutation_magnitude=mutation_rate)
+            # Increment population counter
+            self._generation += 1
+        
+        # Calculate weights for the final generation
+        self._evaluate_generation(npairs=npairs, ngames=ngames)
+        # Log final generation
+        try:
+            self._log_gen_write(self.pop, self._generation)
+            self._log_gen_close()
+        except ValueError:
+            logging.debug("Unable to log generation - log file is closed")
+
 
         # Put all buffered logs to their destionation
-        self._logger_mhandler.flush()
-        self.log = pd.read_csv(self._log_file, names=self.log.columns)
+        # self._logger_mhandler.flush()
+        # self.log = pd.read_csv(self._log_file, names=self.log.columns)
 
     def mutate_population(self, mutation_magnitude):
         # Mutate every DS in population
@@ -948,7 +964,7 @@ class EvolutionaryEquilibrium(object):
         pass
 
     # Run evaluations for current generation
-    def run_generation(self, npairs, ngames, mutation_magnitude):
+    def _evaluate_generation(self, npairs, ngames):
         logging.info("GENERATION %s is being processed", self._generation)
 
         # Update fitness values of every DS in population
@@ -960,9 +976,7 @@ class EvolutionaryEquilibrium(object):
             subp._population.sort(key=attrgetter("fitness"), reverse=True)
 
     # Update population for next generation
-    def update_generation(self, dropout_rate, mutation_magnitude):
-        # Increment generation counter
-        self._generation += 1
+    def _update_generation_truncation(self, dropout_rate, mutation_magnitude):
 
         for subp in self.pop:
             # Calculate number of species to drop
@@ -970,7 +984,7 @@ class EvolutionaryEquilibrium(object):
             # Drop underperforming species
             del subp[-to_drop:]
 
-            # Create offspring
+            # Create offsprings with random sampling from best left species
             old_members = set(subp)
             for i in range(to_drop):
                 offspring = copy.deepcopy(random.sample(old_members, 1)[0])
@@ -1080,6 +1094,11 @@ class EvolutionaryEquilibrium(object):
 
     # Update 'payoffs' attribute of provided AgentSet
     def calculate_payoffs(self, matching, ngames):
+        """Calculate payoffs for matching=AgentSet() with ngames valuations of payoffs.
+
+        If 'ngames' > 1, payoffs averaged internally.
+        """
+
         logging.debug("PAYOFFS CALCULATION requested")
         if not isinstance(matching, AgentSet):
             raise ValueError("matching must be inst of AgentSet()")
@@ -1105,18 +1124,19 @@ class EvolutionaryEquilibrium(object):
 
         matching.payoffs = output
 
-        log = []
-        log.append(self._generation)
-        strategies_columns = []
-        payoffs_columns = []
-        for pl in matching:
-            for ds in pl.decision_space:
-                strategies_columns = strategies_columns + list(ds.strategy.values())
-        payoffs_columns = list(matching.payoffs.values())
-        log = log + strategies_columns + payoffs_columns
-        self._logger.debug(str(','.join(map(str, log))))
-        # log = pd.DataFrame(data=[log], index=None, columns=self.log.columns)
-        # self.log = self.log.append(log, ignore_index=True)
+        if self._log_payoffs:
+            log = []
+            log.append(self._generation)
+            strategies_columns = []
+            payoffs_columns = []
+            for pl in matching:
+                for ds in pl.decision_space:
+                    strategies_columns = strategies_columns + list(ds.strategy.values())
+            payoffs_columns = list(matching.payoffs.values())
+            log = log + strategies_columns + payoffs_columns
+            # self._logger.debug(str(','.join(map(str, log))))
+            # log = pd.DataFrame(data=[log], index=None, columns=self.log.columns)
+            # self.log = self.log.append(log, ignore_index=True)
 
     def __repr__(self):
         output = []
