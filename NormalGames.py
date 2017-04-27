@@ -697,18 +697,60 @@ class EvolutionaryEquilibrium(object):
 
     def __init__(self, model, agentset=None,
                  popsize=6, generations=10,
-                 mutation_magnitude=0.03, npairs=5, ngames=2):
+                 mutation_magnitude=0.03, npairs=5, ngames=2,
+                 log_metadata=True, log_generations=True,
+                 log_payoffs=False,
+                 outfolder="output", local_run=True):
+
+        # Saving initial params for __repr__ method
+        # Excluding some params that showed explicitly in repr
+        # or causes too large output
         self.__initial_params = locals()
         del(self.__initial_params["agentset"])
         del(self.__initial_params["model"])
         del(self.__initial_params["self"])
 
+        self._local_run = local_run
+
+        self._metadata = OrderedDict()
+
         self.model = copy.deepcopy(model)
+
+        self._metadata["model"] = self.model.__class__.__name__
+        self._metadata["timestamp"] = int(time.time())
+
         self._mt_magnitude = mutation_magnitude
+        self._metadata["mt_magnitude"] = self._mt_magnitude
         self._npairs = npairs
+        self._metadata["npairs"] = self._npairs
         self._ngames = ngames
+        self._metadata["ngames"] = self._ngames
         self._popsize = popsize
+        self._metadata["popsize"] = self._popsize
         self._generation = 0
+
+        # Logging Generations
+        self._log_generations = log_generations
+        self._log_gen_columns = []
+        # Add data about logging of generations to metadata record
+        self._metadata["log_generations"] = self._log_generations
+        self._metadata["log_gen_columns"] = self._log_gen_columns
+
+        # Logging Payoffs
+        self._log_payoffs = log_payoffs
+        self._log_po_columns = []
+        # Add data about logging of payoffs to metadata record
+        self._metadata["log_payoffs"] = self._log_payoffs
+        self._metadata["log_po_columns"] = self._log_po_columns
+
+        # Genereate outfolder path and outname for assciated files naming
+        self._outfolder = outfolder + '/' + self._metadata["model"] + '/'
+        self._outname = outname = "ee_" \
+                  + str(self._metadata["popsize"]) + '_' \
+                  + str(self._metadata["npairs"]) + '_' \
+                  + str(self._metadata["ngames"]) + '_' \
+                  + str(self._metadata["mt_magnitude"]).replace('.', '') + '_' \
+                  + str(self._metadata["timestamp"])
 
         if agentset is None:
             self.agentset = AgentSet(model=model)
@@ -723,9 +765,26 @@ class EvolutionaryEquilibrium(object):
                                   popsize=self._popsize,
                                   mutation_magnitude=self._mt_magnitude)
 
-        self._init_log()
+        
+        # Initialize Generations logging
+        if self._log_generations:
+            self._init_log_generations()
 
-    def _init_log(self):
+        # Initialize Payoffs logging
+        if self._log_payoffs:
+            self._init_log_payoffs()
+
+        # Record metadata
+        self._record_metadata()
+
+
+
+
+    ########################################
+    # Methods dedicated to logging - START #
+    ########################################
+
+    def _init_log_payoffs(self):
         columns = []
         columns.append("Generation")
         strategies_columns = []
@@ -739,18 +798,115 @@ class EvolutionaryEquilibrium(object):
             payoffs_columns.append(str_to_append)
 
         columns = columns + strategies_columns + payoffs_columns
-        log = pd.DataFrame(data=None, index=None, columns=columns)
-        self.log = log
+        self._log_po_columns = columns
 
-        self._logger = logging.getLogger("ee" + str(id(self)))
+        self._logger = logging.getLogger("ee_po" + str(id(self)))
         self._logger.setLevel(logging.DEBUG)
-        self._log_file = 'logs/ee.csv'
+        self._log_file = self._outfolder + self._outname + '_po.csv'
         fhandler = logging.FileHandler(filename=self._log_file, mode='w')
         fhandler.setLevel(logging.DEBUG)
         mhandler = MemoryHandler(capacity=2000, target=fhandler)
         self._logger_mhandler = mhandler
         self._logger.addHandler(mhandler)
         print("Loggers of EE:", self._logger.handlers)
+
+    def _init_log_generations(self):
+        """Initialize generations logging."""
+
+        # Construct columns to gather statistics on generations
+        columns = []
+        columns.append("Generation")
+        columns_strategies = []
+        columns_fitness = []
+        for idx, subp in enumerate(self.pop):
+            # Record each strategy of every player in generation
+            for decision in subp[0].decision_set:
+                strat_str = "STRAT" + "-" + str(idx) + "-" + subp[0].pl_type \
+                                + "-" + subp[0].type + "-" + decision
+                columns_strategies.append(strat_str)
+
+            # Record fitness of each strategy
+            fitness_str = "FITNESS_STRAT" + "-" + str(idx) + "-" + subp[0].pl_type
+            columns_fitness.append(fitness_str)
+
+        # for pl in self.agentset:
+        #     for idx, ds in enumerate(pl.decision_space):
+        #         for decision in ds.decision_set:
+        #             str_to_append = "STRAT" + "-" + pl.name + "-" \
+        #                             + str(idx) + "-" + ds.type + "-" + decision
+        #             columns_strategies.append(str_to_append)
+        # columns_fitness.append("Fitness")
+
+        columns = columns + columns_strategies + columns_fitness
+    
+        self._log_gen_columns = columns
+        self._metadata["log_gen_columns"] = self._log_gen_columns
+
+        if self._local_run:
+            self._init_log_gen_local()
+        else:
+            pass
+
+    def _init_log_gen_local(self):
+        log_gen_folder = self._outfolder + 'gen/'
+        
+        if not os.path.exists(log_gen_folder):
+            os.makedirs(log_gen_folder)
+
+        self._log_gen_file = open(log_gen_folder + self._outname
+                                  + '_gen.csv', mode='w', newline='')
+        self._log_gen_writer = csv.writer(self._log_gen_file)
+        self._log_gen_writer.writerow(self._log_gen_columns)
+
+    def _log_gen_write(self, population, generation):
+        """Write to the log provided population
+        under provided generation number."""
+
+        rows = []
+        for i in range(self._popsize):
+            data = []
+            data.append(generation)
+            data_strategies = []
+            data_fitness = []
+            for subp in self.pop:
+                
+                # Record each strategy of current DS
+                for strategy in subp[i]._strategy:
+                    data_strategies.append(strategy)
+
+                # Record fitness of each strategy
+                data_fitness.append(subp[i].fitness)
+
+            data = data + data_strategies + data_fitness
+            rows.append(data)
+
+        self._log_gen_write_local(rows)
+
+    def _log_gen_write_local(self, rows):
+        self._log_gen_writer.writerows(rows)
+
+    def _log_gen_close(self):
+        if self._local_run:
+            self._log_gen_file.close()
+        else:
+            pass
+
+        
+    def _record_metadata(self):
+        # Create needed to write logs folders
+        if not os.path.exists(self._outfolder):
+            os.makedirs(self._outfolder)
+
+        # Open file named as ee_{}_{}_{}_{}_{}.txt
+        # Write to the file metadata of simulation
+        with open(self._outfolder + self._outname + '_metadata.txt', mode="w") as outfile:
+            json.dump(self._metadata, outfile, indent=4)
+
+
+    ######################################
+    # Methods dedicated to logging - END #
+    ######################################
+
 
     @staticmethod
     def restore_agentset(population, agentset):
