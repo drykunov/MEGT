@@ -1,12 +1,10 @@
 
-
 # To-do
 # Write an evolutionary optimization algorithm
 # Write a multi-modal optimization
-# Develop easy to follow outputs
+# [done] Develop easy to follow outputs
 # Add multi-thread workflows (use SCOOP)
 # Add docstrings
-
 
 import numpy as np
 import warnings
@@ -18,12 +16,13 @@ import logging
 from logging.handlers import MemoryHandler
 import random
 from operator import attrgetter
-import pandas as pd
-import pdb
+# import pandas as pd
+# import pdb
 import json
 import csv
 import time
 import os
+from functools import reduce
 
 
 class Game(object):
@@ -88,12 +87,15 @@ class NormalFormGame(Game):
         return payoffs
 
     def calculate_expected_payoffs(self, pl1_strategy, pl2_strategy):
-        payoff = []
         pl1_strategy = np.array(pl1_strategy).reshape(1, -1)
         pl2_strategy = np.array(pl2_strategy).reshape(1, -1)
-        pl1_payoff = reduce(np.dot, [pl1_strategy, self.payoffs_matrix[0], pl2_strategy.T])
+        pl1_payoff = reduce(
+            np.dot, [
+                pl1_strategy, self.payoffs_matrix[0], pl2_strategy.T])
         pl1_payoff.shape = (1,)
-        pl2_payoff = reduce(np.dot, [pl1_strategy, self.payoffs_matrix[1], pl2_strategy.T])
+        pl2_payoff = reduce(
+            np.dot, [
+                pl1_strategy, self.payoffs_matrix[1], pl2_strategy.T])
         pl2_payoff.shape = (1,)
         return pl1_payoff, pl2_payoff
 
@@ -491,17 +493,20 @@ class AgentSet(object):
     def __init__(self, players=[], model=None):
         if model is None:
             self.players = players
-        # If appropriate model provided as input, initialize corresponding AgentSet()
+        # If appropriate model provided as input, initialize corresponding
+        # AgentSet()
         elif isinstance(model, Game):
             self._read_model(model)
         else:
-            raise ValueError("Provided model input to AgentSet() is not legible")
+            raise ValueError(
+                "Provided model input to AgentSet() is not legible")
 
     def _read_model(self, model):
         if isinstance(model, NormalFormGame):
             self.players = []
             for pl_type in model.players:
-                pl_dds = DiscreteDecisionSet(list(model.allowed_moves[pl_type].keys()))
+                pl_dds = DiscreteDecisionSet(list(
+                    model.allowed_moves[pl_type].keys()))
                 pl = Player(pl_type, [pl_dds])
                 self.players.append(pl)
         else:
@@ -624,11 +629,12 @@ class SubPopulation(object):
 class Population(object):
     """To-do: Aggregation of SubPopulations to manage them in tractable way."""
 
-    def __init__(self, agentset=AgentSet(), init_uniform=True, popsize=20, mutation_magnitude=0.03):
+    def __init__(self, agentset=AgentSet(), init_uniform=True,
+                 popsize=20, mutation_magnitude=0.03):
         self.agentset = agentset
         self._pl_count = len(self.agentset)
         self._population = []
-        self._mt_magnitude = mutation_magnitude
+        self._mt_rate = mutation_magnitude
         self._popsize = popsize
         self.init_population(uniform=init_uniform)
 
@@ -701,7 +707,8 @@ class EvolutionaryEquilibrium(object):
 
     def __init__(self, model, agentset=None,
                  popsize=6, generations=10,
-                 mutation_magnitude=0.03, npairs=5, ngames=2,
+                 mutation_magnitude=0.03, dropout_rate=0.5,
+                 npairs=5, ngames=2,
                  log_metadata=True, log_generations=True,
                  log_payoffs=False,
                  outfolder="output", local_run=True):
@@ -714,33 +721,42 @@ class EvolutionaryEquilibrium(object):
         del(self.__initial_params["model"])
         del(self.__initial_params["self"])
 
+        # Boolean variable to toggle run-mode
         self._local_run = local_run
 
+        # Create metadata container
         self._metadata = OrderedDict()
 
         self.model = copy.deepcopy(model)
 
+        # Record general info about the evaluation
         self._metadata["model"] = self.model.__class__.__name__
         self._metadata["timestamp"] = int(time.time())
 
-        self._mt_magnitude = mutation_magnitude
-        self._metadata["mt_magnitude"] = self._mt_magnitude
+        self._generations = generations
+        self._metadata["generations"] = self._generations
+        self._mt_rate = mutation_magnitude
+        self._metadata["mt_magnitude"] = self._mt_rate
+        self._dropout_rate = dropout_rate
+        self._metadata["dropout_rate"] = self._dropout_rate
         self._npairs = npairs
         self._metadata["npairs"] = self._npairs
         self._ngames = ngames
         self._metadata["ngames"] = self._ngames
         self._popsize = popsize
         self._metadata["popsize"] = self._popsize
+
+        # Initialize current generation counter
         self._generation = 0
 
-        # Logging Generations
+        # Initialize logging generations vars
         self._log_generations = log_generations
         self._log_gen_columns = []
         # Add data about logging of generations to metadata record
         self._metadata["log_generations"] = self._log_generations
         self._metadata["log_gen_columns"] = self._log_gen_columns
 
-        # Logging Payoffs
+        # Logging payoffs
         self._log_payoffs = log_payoffs
         self._log_po_columns = []
         # Add data about logging of payoffs to metadata record
@@ -750,26 +766,25 @@ class EvolutionaryEquilibrium(object):
         # Genereate outfolder path and outname for assciated files naming
         self._outfolder = outfolder + '/' + self._metadata["model"] + '/'
         self._outname = outname = "ee_" \
-                  + str(self._metadata["popsize"]) + '_' \
-                  + str(self._metadata["npairs"]) + '_' \
-                  + str(self._metadata["ngames"]) + '_' \
-                  + str(self._metadata["mt_magnitude"]).replace('.', '') + '_' \
-                  + str(self._metadata["timestamp"])
+            + str(self._metadata["popsize"]) + '_' \
+            + str(self._metadata["npairs"]) + '_' \
+            + str(self._metadata["ngames"]) + '_' \
+            + str(self._metadata["mt_magnitude"]).replace('.', '') + '_' \
+            + str(self._metadata["timestamp"])
 
         if agentset is None:
             self.agentset = AgentSet(model=model)
             self.pop = Population(agentset=self.agentset,
                                   init_uniform=True,
                                   popsize=self._popsize,
-                                  mutation_magnitude=self._mt_magnitude)
+                                  mutation_magnitude=self._mt_rate)
         else:
             self.agentset = copy.deepcopy(agentset)
             self.pop = Population(agentset=self.agentset,
                                   init_uniform=False,
                                   popsize=self._popsize,
-                                  mutation_magnitude=self._mt_magnitude)
+                                  mutation_magnitude=self._mt_rate)
 
-        
         # Initialize Generations logging
         if self._log_generations:
             self._init_log_generations()
@@ -780,9 +795,6 @@ class EvolutionaryEquilibrium(object):
 
         # Record metadata
         self._record_metadata()
-
-
-
 
     ########################################
     # Methods dedicated to logging - START #
@@ -796,7 +808,8 @@ class EvolutionaryEquilibrium(object):
         for pl in self.agentset:
             for idx, ds in enumerate(pl.decision_space):
                 for decision in ds.decision_set:
-                    str_to_append = pl.name + "-" + str(idx) + "-" + ds.type + "-" + decision
+                    str_to_append = pl.name + "-" + \
+                        str(idx) + "-" + ds.type + "-" + decision
                     strategies_columns.append(str_to_append)
             str_to_append = pl.name + "-payoff"
             payoffs_columns.append(str_to_append)
@@ -826,11 +839,12 @@ class EvolutionaryEquilibrium(object):
             # Record each strategy of every player in generation
             for decision in subp[0].decision_set:
                 strat_str = "STRAT" + "-" + str(idx) + "-" + subp[0].pl_type \
-                                + "-" + subp[0].type + "-" + decision
+                    + "-" + subp[0].type + "-" + decision
                 columns_strategies.append(strat_str)
 
             # Record fitness of each strategy
-            fitness_str = "FITNESS_STRAT" + "-" + str(idx) + "-" + subp[0].pl_type
+            fitness_str = "FITNESS_STRAT" + "-" + \
+                str(idx) + "-" + subp[0].pl_type
             columns_fitness.append(fitness_str)
 
         # for pl in self.agentset:
@@ -842,7 +856,7 @@ class EvolutionaryEquilibrium(object):
         # columns_fitness.append("Fitness")
 
         columns = columns + columns_strategies + columns_fitness
-    
+
         self._log_gen_columns = columns
         self._metadata["log_gen_columns"] = self._log_gen_columns
 
@@ -853,7 +867,7 @@ class EvolutionaryEquilibrium(object):
 
     def _init_log_gen_local(self):
         log_gen_folder = self._outfolder + 'gen/'
-        
+
         if not os.path.exists(log_gen_folder):
             os.makedirs(log_gen_folder)
 
@@ -873,7 +887,7 @@ class EvolutionaryEquilibrium(object):
             data_strategies = []
             data_fitness = []
             for subp in self.pop:
-                
+
                 # Record each strategy of current DS
                 for strategy in subp[i]._strategy:
                     data_strategies.append(strategy)
@@ -895,7 +909,6 @@ class EvolutionaryEquilibrium(object):
         else:
             pass
 
-        
     def _record_metadata(self):
         # Create needed to write logs folders
         if not os.path.exists(self._outfolder):
@@ -906,11 +919,9 @@ class EvolutionaryEquilibrium(object):
         with open(self._outfolder + self._outname + '_metadata.txt', mode="w") as outfile:
             json.dump(self._metadata, outfile, indent=4)
 
-
     ######################################
     # Methods dedicated to logging - END #
     ######################################
-
 
     @staticmethod
     def restore_agentset(population, agentset):
@@ -930,8 +941,24 @@ class EvolutionaryEquilibrium(object):
         output = AgentSet(list(output_players.values()))
         return output
 
-    def optimize(self, generations, dropout_rate,
-                 mutation_rate, npairs, ngames):
+    def optimize(self, generations=None,
+                 dropout_rate=None,
+                 mutation_rate=None,
+                 npairs=None,
+                 ngames=None):
+
+        # Substitute default params if necessary
+        if generations is None:
+            generations = self._generations
+        if dropout_rate is None:
+            dropout_rate = self._dropout_rate
+        if mutation_rate is None:
+            mutation_rate = self._mt_rate
+        if npairs is None:
+            npairs = self._npairs
+        if ngames is None:
+            ngames = self._ngames
+
         for i in range(generations):
             # Calculate fitness and sort species
             self._evaluate_generation(npairs=npairs, ngames=ngames)
@@ -940,14 +967,15 @@ class EvolutionaryEquilibrium(object):
                 try:
                     self._log_gen_write(self.pop, self._generation)
                 except ValueError:
-                    logging.debug("Unable to log generation - log file is closed")
+                    logging.debug(
+                        "Unable to log generation - log file is closed")
 
             # Create new generation
             self._update_generation_truncation(dropout_rate=dropout_rate,
                                                mutation_magnitude=mutation_rate)
             # Increment population counter
             self._generation += 1
-        
+
         # Calculate weights for the final generation
         self._evaluate_generation(npairs=npairs, ngames=ngames)
         # Log final generation
@@ -957,7 +985,6 @@ class EvolutionaryEquilibrium(object):
                 self._log_gen_close()
             except ValueError:
                 logging.debug("Unable to log generation - log file is closed")
-
 
         # Put all buffered logs to their destionation
         # self._logger_mhandler.flush()
@@ -1069,7 +1096,9 @@ class EvolutionaryEquilibrium(object):
             logging.debug("construct_matching_population() called")
 
             for subp in self.pop:
-                logging.debug("SUBP (%s to choose): %s", len(subp.ds_tobematched), subp)
+                logging.debug(
+                    "SUBP (%s to choose): %s", len(
+                        subp.ds_tobematched), subp)
                 # Randomly choose DS
                 choosen_ds = random.sample(subp.ds_tobematched, 1)[0]
                 logging.debug("Chose DS: %s", choosen_ds)
@@ -1093,7 +1122,8 @@ class EvolutionaryEquilibrium(object):
         matchings = []
         for i in range(total_games):
             matching_population = construct_matching_population()
-            matching_agentset = self.restore_agentset(matching_population, self.agentset)
+            matching_agentset = self.restore_agentset(
+                matching_population, self.agentset)
             matchings.append(matching_agentset)
         logging.debug("MATCHINGS (%s) constructed", len(matchings))
         return matchings
@@ -1137,7 +1167,8 @@ class EvolutionaryEquilibrium(object):
             payoffs_columns = []
             for pl in matching:
                 for ds in pl.decision_space:
-                    strategies_columns = strategies_columns + list(ds.strategy.values())
+                    strategies_columns = strategies_columns + \
+                        list(ds.strategy.values())
             payoffs_columns = list(matching.payoffs.values())
             log = log + strategies_columns + payoffs_columns
             # self._logger.debug(str(','.join(map(str, log))))
@@ -1147,8 +1178,11 @@ class EvolutionaryEquilibrium(object):
     def __repr__(self):
         output = []
         # output.append("EvolutionaryEquilibrium(popsize={}, mutation_magnitude={})".format(self._popsize,
-        # self._mt_magnitude))
-        output.append("EvolutionaryEquilibrium({})".format(self.__initial_params))
+        # self._mt_rate))
+        output.append(
+            "EvolutionaryEquilibrium({})".format(
+                self.__initial_params))
+        output.append("Model: {}".format(self._metadata["model"]))
         output.append("Generation: {}".format(self._generation))
         output.append("")
         output.append("AgentSet:")
