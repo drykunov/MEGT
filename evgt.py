@@ -23,6 +23,8 @@ import csv
 import time
 import os
 from functools import reduce
+from tqdm import tqdm, tqdm_notebook
+from concurrent import futures
 
 
 class Game(object):
@@ -337,7 +339,14 @@ class DiscreteDecisionSet(DecisionSet):
 
     # Function to derive a move for this DecisionSet
     def make_decision(self):
-        choice = np.random.choice(self.decision_set, p=self._strategy)
+        if len(self.decision_set) == 2:
+            tmp = np.random.random()
+            if tmp < self._strategy[0]:
+                choice = self.decision_set[0]
+            else:
+                choice = self.decision_set[1]
+        else:
+            choice = np.random.choice(self.decision_set, p=self._strategy)
         return choice
 
     def mutate(self, magnitude):
@@ -711,7 +720,9 @@ class EvolutionaryEquilibrium(object):
                  npairs=5, ngames=2,
                  log_metadata=True, log_generations=True,
                  log_payoffs=False,
-                 outfolder="output", local_run=True):
+                 outfolder="output", outfile_prefix="ee",
+                 local_run=True,
+                 stream_progress=False, progress_bar=None):
 
         # Saving initial params for __repr__ method
         # Excluding some params that showed explicitly in repr
@@ -722,7 +733,12 @@ class EvolutionaryEquilibrium(object):
         del(self.__initial_params["self"])
 
         # Boolean variable to toggle run-mode
+        if stream_progress and not local_run:
+            raise Exception("Can't stream progress in non-local run")
         self._local_run = local_run
+        self._stream_progress = stream_progress
+        self._progress_bar = progress_bar
+        self._progress_bar_own = False
 
         # Create metadata container
         self._metadata = OrderedDict()
@@ -735,9 +751,9 @@ class EvolutionaryEquilibrium(object):
 
         self._generations = generations
         self._metadata["generations"] = self._generations
-        self._mt_rate = mutation_magnitude
+        self._mt_rate = mutation_magnitude * 0.01
         self._metadata["mt_magnitude"] = self._mt_rate
-        self._dropout_rate = dropout_rate
+        self._dropout_rate = dropout_rate * 0.01
         self._metadata["dropout_rate"] = self._dropout_rate
         self._npairs = npairs
         self._metadata["npairs"] = self._npairs
@@ -765,7 +781,7 @@ class EvolutionaryEquilibrium(object):
 
         # Genereate outfolder path and outname for assciated files naming
         self._outfolder = outfolder + '/' + self._metadata["model"] + '/'
-        self._outname = outname = "ee_" \
+        self._outname = outfile_prefix + '_' \
             + str(self._metadata["popsize"]) + '_' \
             + str(self._metadata["npairs"]) + '_' \
             + str(self._metadata["ngames"]) + '_' \
@@ -795,6 +811,14 @@ class EvolutionaryEquilibrium(object):
 
         # Record metadata
         self._record_metadata()
+
+
+
+
+    def _init_progress_bar(self, total_iters):
+        del(self._progress_bar)
+        self._progress_bar = tqdm(total=total_iters)
+        self._progress_bar_own = True
 
     ########################################
     # Methods dedicated to logging - START #
@@ -959,6 +983,11 @@ class EvolutionaryEquilibrium(object):
         if ngames is None:
             ngames = self._ngames
 
+        # Initialize progress bar if needed
+        if self._progress_bar_own or (self._local_run and self._stream_progress
+                                      and self._progress_bar is None):
+            self._init_progress_bar(generations)
+
         for i in range(generations):
             # Calculate fitness and sort species
             self._evaluate_generation(npairs=npairs, ngames=ngames)
@@ -976,6 +1005,10 @@ class EvolutionaryEquilibrium(object):
             # Increment population counter
             self._generation += 1
 
+            # Increase count in progress bar if needed
+            if self._stream_progress:
+                self._progress_bar.update(1)
+
         # Calculate weights for the final generation
         self._evaluate_generation(npairs=npairs, ngames=ngames)
         # Log final generation
@@ -985,6 +1018,10 @@ class EvolutionaryEquilibrium(object):
                 self._log_gen_close()
             except ValueError:
                 logging.debug("Unable to log generation - log file is closed")
+
+        # Close progress bar if needed
+        if self._progress_bar_own:
+            self._progress_bar.close()
 
         # Put all buffered logs to their destionation
         # self._logger_mhandler.flush()
@@ -998,11 +1035,11 @@ class EvolutionaryEquilibrium(object):
 
     # Run evaluations for current generation
     def _evaluate_generation(self, npairs, ngames):
-        logging.info("GENERATION %s is being processed", self._generation)
+        # logging.info("GENERATION %s is being processed", self._generation)
 
         # Update fitness values of every DS in population
         self._update_fitness(npairs=npairs, ngames=ngames)
-        logging.info("FITNESS updated")
+        # logging.info("FITNESS updated")
 
         # Sort DSs by fitness
         for subp in self.pop:
@@ -1026,11 +1063,25 @@ class EvolutionaryEquilibrium(object):
 
     # Calculate fitness
     def _update_fitness(self, npairs, ngames):
-        logging.info("FITNESS UPDATE requested with %s npairs and %s ngames",
-                     npairs, ngames)
+        # logging.info("FITNESS UPDATE requested with %s npairs and %s ngames",
+        #              npairs, ngames)
 
         # Make matchings and evaluate them
         matchings = self.make_matchings(npairs)
+        
+
+        # pdb.set_trace()
+        # pool = futures.ThreadPoolExecutor(max_workers=30)
+        # for matching in matchings:
+        #     pool.submit(self.calculate_payoffs, matching)
+        # pool.shutdown(wait=True)
+
+        # with futures.ThreadPoolExecutor() as executor:
+        #     executor.map(self.calculate_payoffs, matchings)
+        #     executor.shutdown(wait=True)
+        
+
+        # --- One-by-one execution variant
         for matching in matchings:
             self.calculate_payoffs(matching, ngames)
 
@@ -1061,7 +1112,7 @@ class EvolutionaryEquilibrium(object):
         OUTPUT: list of AgentSet() instances
 
         """
-        logging.info("Running matching algorithm for %s npairs", npairs)
+        # logging.info("Running matching algorithm for %s npairs", npairs)
 
         # Gather subpopulation lengths
         subp_lengths = []
@@ -1072,7 +1123,7 @@ class EvolutionaryEquilibrium(object):
 
         # Calculate total number of matches to be constructed
         total_games = max(subp_lengths) * npairs
-        logging.info("Total number of matches (%s)", total_games)
+        # logging.info("Total number of matches (%s)", total_games)
 
         for subp in self.pop:
             # Calculate matching cap
