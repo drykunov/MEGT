@@ -25,6 +25,7 @@ import os
 from functools import reduce
 from tqdm import tqdm, tqdm_notebook
 from concurrent import futures
+import uuid
 
 
 class Game(object):
@@ -787,6 +788,7 @@ class EvolutionaryEquilibrium(object):
             + str(self._metadata["ngames"]) + '_' \
             + str(self._metadata["mt_magnitude"]).replace('.', '') + '_' \
             + str(self._metadata["dropout_rate"]).replace('.', '') + '_' \
+            + str(uuid.uuid4()) + '_' \
             + str(self._metadata["timestamp"])
 
         if agentset is None:
