@@ -6,6 +6,8 @@ from scipy.spatial import distance
 import re
 import copy
 from functools import reduce
+from tqdm import tqdm
+from concurrent import futures
 
 
 def _get_gen_logfile(metadata_file_path):
@@ -297,3 +299,64 @@ def check_metadata_list(metadata_wequilibrium_list, legible_equilibria):
             md.append(pd.Series([validity], index=["legible_equilibria_found"])))
 
     return output
+
+
+def error_proof_process_model(model_run):
+    md, gen, conv = None, None, None
+    try:
+        md, gen, conv = process_model_run(model_run)
+    except Exception as exc:
+        print("Failed to process model run: {}\nError: {}".format(
+            model_run, exc))
+    return md, gen, conv
+
+
+def batch_process_model_runs(metadata_files):
+    """Batch process model runs.
+
+    Process metadata files, load generations statistics,
+    calculate corresponding convergence metrics.
+
+    Input
+    -----
+    'metadata_files' : list
+        list of metadata files of model runs
+
+    Output
+    ------
+    'metadata' : list of pd.Series
+        list of processed metadata with found equilibrium data
+    'generations' : list of pd.DataFrame
+        list of corresponding generations
+        statistics (index aligned with 'metadata')
+    'convergence' : list of dictionary
+        list of convergence metrics
+        for a model run (index aligned with 'metadata')
+
+    """
+
+    metadata = []
+    generations = []
+    convergence = []
+    pb = tqdm(total=len(metadata_files))
+    pb.clear()
+
+    processes = os.cpu_count() * 4
+    pool = futures.ProcessPoolExecutor(max_workers=processes)
+    fs = []
+
+    for model_run in metadata_files:
+        fs.append(pool.submit(error_proof_process_model, model_run))
+
+    for task in futures.as_completed(fs):
+        md, gen, conv = task.result()
+        if md is not None:
+            metadata.append(md)
+            generations.append(gen)
+            convergence.append(conv)
+        pb.update(1)
+
+    pool.shutdown()
+    pb.close()
+
+    return metadata, generations, convergence
