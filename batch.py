@@ -11,6 +11,7 @@ import evgt as eg
 from concurrent import futures
 import time
 import copy
+import os
 
 
 def make_kwargs_mesh(params_to_mesh, strict_params={}):
@@ -87,7 +88,10 @@ def batch_eval(variable_params, constant_params, sample_size):
         int(s // 3600), int(s % 3600 // 60), int(s % 60)))
 
     # Create concurent async execution handler
-    pool = futures.ProcessPoolExecutor(max_workers=16)
+    CPUs = os.cpu_count()
+    print("Start of multiprocess model running on {} CPUs".format(CPUs))
+
+    pool = futures.ProcessPoolExecutor(max_workers=CPUs)
     fs = []
     # Unpack kwargs_list
     for kwargs in kwargs_list:

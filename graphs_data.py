@@ -341,8 +341,8 @@ def batch_process_model_runs(metadata_files):
     pb = tqdm(total=len(metadata_files))
     pb.clear()
 
-    processes = os.cpu_count() * 4
-    pool = futures.ProcessPoolExecutor(max_workers=processes)
+    CPUs = os.cpu_count()
+    pool = futures.ProcessPoolExecutor(max_workers=CPUs)
     fs = []
 
     for model_run in metadata_files:
