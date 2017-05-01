@@ -923,7 +923,10 @@ class EvolutionaryEquilibrium(object):
             data = data + data_strategies + data_fitness
             rows.append(data)
 
-        self._log_gen_write_local(rows)
+        if self._local_run:
+            self._log_gen_write_local(rows)
+        else:
+            print("Non-local run - logging generations is unsupported")
 
     def _log_gen_write_local(self, rows):
         self._log_gen_writer.writerows(rows)
@@ -932,7 +935,7 @@ class EvolutionaryEquilibrium(object):
         if self._local_run:
             self._log_gen_file.close()
         else:
-            pass
+            print("Non-local run - logging generations is unsupported")
 
     def _record_metadata(self):
         # Create needed to write logs folders
