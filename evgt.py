@@ -786,6 +786,7 @@ class EvolutionaryEquilibrium(object):
             + str(self._metadata["npairs"]) + '_' \
             + str(self._metadata["ngames"]) + '_' \
             + str(self._metadata["mt_magnitude"]).replace('.', '') + '_' \
+            + str(self._metadata["dropout_rate"]).replace('.', '') + '_' \
             + str(self._metadata["timestamp"])
 
         if agentset is None:
