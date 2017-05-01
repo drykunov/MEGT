@@ -105,6 +105,7 @@ def batch_eval(variable_params, constant_params, sample_size):
     for ft in futures.as_completed(fs):
         pb.update(1)
 
+    pool.shutdown()
     pb.close()
     arch_stop = time.time()
 
