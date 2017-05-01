@@ -275,7 +275,7 @@ def _check_equilibrium_validity(metadata_wequilibrium_series,
     return output
 
 
-def check_metadata_list(metadata_wequilibrium_list, legible_equilibria):
+def check_metadata_list_for_equilibria(metadata_wequilibrium_list, legible_equilibria):
     """Return metadata series list with
     added boolean attribute ''legible_equilibria_found''
     indicating whether found equilibrium is in 'legible_equilibria' list.
