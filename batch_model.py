@@ -89,7 +89,7 @@ def batch_eval(variable_params, constant_params, sample_size):
     print("Current timestamp: {}".format(arch_start))
     print("Current date and time: {}".format(
         time.strftime("%d %b %Y %H:%M:%S", time.localtime())))
-    print("Total number of func evals to do: {}".format(total_func_evals))
+    print("Worst-case estimation of func evals to do: {}".format(total_func_evals))
     print("Total number of model runs: {}".format(
         len(kwargs_list) * sample_size))
     # print("Worst-case estimation of time to compute: {}".format(
@@ -99,6 +99,7 @@ def batch_eval(variable_params, constant_params, sample_size):
 
     # Create concurent async execution handler
     CPUs = os.cpu_count()
+    print("")
     print("Start of multiprocess model running on {} CPUs".format(CPUs))
 
     pool = futures.ProcessPoolExecutor(max_workers=CPUs)
@@ -125,6 +126,7 @@ def batch_eval(variable_params, constant_params, sample_size):
     pb.close()
     arch_stop = time.time()
 
+    print("")
     print("MODELS finished calculations")
     print("Current timestamp: {}".format(arch_start))
     print("Average speed of funcevals: {} sec/funceval".format(
