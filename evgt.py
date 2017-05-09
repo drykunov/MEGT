@@ -282,6 +282,23 @@ class SwerveStay(NormalFormGame):
         pass
 
 
+class HawkDove(NormalFormGame):
+    players_count = 2
+    payoffs_matrix = np.array(
+        [[[-5, 10],
+          [0, 5]],
+
+            [[-5, 0],
+             [10, 5]]])
+    players = ["Player_1", "Player_2"]
+    allowed_moves = {}
+    allowed_moves["Player_1"] = {"Hawk": 0, "Dove": 1}
+    allowed_moves["Player_2"] = {"Hawk": 0, "Dove": 1}
+
+    def __init__(self):
+        pass
+
+
 class DecisionSet(object):
     def __init__(self):
         self.pl_type = None
