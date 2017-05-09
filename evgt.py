@@ -55,8 +55,25 @@ class NormalFormGame(Game):
         pass
 
     def calculate_payoffs(self, pl_moves):
-        # pl_moves assumed to be ordered dictionary
-        # Simple check in the beginnign
+        """Calculate payoffs for provided moves.
+
+        Input
+        -----
+        pl_moves : dictionary
+            Dictionary with pl_types (names) as keys
+            and list of their actions as values of the dictionary
+
+        Output
+        ------
+        dictionary :
+            Payoffs of players. Dictionary with
+            the same keys as input dictionary and integer payoffs
+            as values of the dictionary.
+
+        """
+
+        # Check that the length of provided vector of strategies
+        # equals the number of specified in the game
         if len(pl_moves) != self.players_count:
             raise Exception("Pure strategies set length is not compatible")
 
@@ -90,6 +107,11 @@ class NormalFormGame(Game):
         return payoffs
 
     def calculate_expected_payoffs(self, pl1_strategy, pl2_strategy):
+        """Calculate expected payoffs for provided strategies.
+
+        !Supported only for 2x2 games
+
+        """
         pl1_strategy = np.array(pl1_strategy).reshape(1, -1)
         pl2_strategy = np.array(pl2_strategy).reshape(1, -1)
         pl1_payoff = reduce(
