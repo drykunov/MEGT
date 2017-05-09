@@ -13,6 +13,9 @@ def main():
     parser.add_argument(
         'pickel_destination',
         help="path to the file, where to pickle processed data")
+    parser.add_argument(
+        '-p', '--processes', help="number of parallel processes to use",
+        type=int, default=None)
     args = parser.parse_args()
 
     arch_start = time.time()
@@ -31,7 +34,8 @@ def main():
 
     md_files = gd.get_metadata_files_list(args.output_folder)
     print("Found {} metadata files".format(len(md_files)))
-    output = gd.batch_process_model_runs(md_files)
+    output = gd.batch_process_model_runs(md_files,
+                                         parallel_processes=args.processes)
     print("Successfully processed {} model runs".format(len(output[0])))
 
     with open(args.pickel_destination, 'wb') as f:

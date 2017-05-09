@@ -313,7 +313,8 @@ def error_proof_process_model(model_run):
     return md, gen, conv
 
 
-def batch_process_model_runs(metadata_files):
+def batch_process_model_runs(metadata_files,
+                             parallel_processes=None):
     """Batch process model runs.
 
     Process metadata files, load generations statistics,
@@ -343,7 +344,11 @@ def batch_process_model_runs(metadata_files):
     pb = tqdm(total=len(metadata_files))
     pb.clear()
 
-    CPUs = os.cpu_count()
+    if parallel_processes is None:
+        CPUs = os.cpu_count()
+    else:
+        CPUs = parallel_processes
+
     pool = futures.ProcessPoolExecutor(max_workers=CPUs)
     fs = []
 
