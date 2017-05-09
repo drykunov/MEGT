@@ -14,7 +14,7 @@ import copy
 import os
 
 
-def make_kwargs_mesh(params_to_mesh, strict_params={}):
+def _make_kwargs_mesh(params_to_mesh, strict_params={}):
     # Convert input to ordered dict to manipulate further
     args_input = OrderedDict(params_to_mesh)
     args_space = {}
@@ -42,7 +42,16 @@ def make_kwargs_mesh(params_to_mesh, strict_params={}):
     return kwargs_list
 
 
-def evaluate_model(kwargs):
+def _fix_kwargs_scale(kwargs_list):
+    fixed_kwargs_list = copy.deepcopy(kwargs_list)
+    for kwargs in fixed_kwargs_list:
+        kwargs["mutation_magnitude"] *= 0.01
+        kwargs["dropout_rate"] *= 0.01
+
+    return fixed_kwargs_list
+
+
+def _evaluate_model(kwargs):
     model = eg.EvolutionaryEquilibrium(**kwargs)
     model.optimize()
 
@@ -55,7 +64,8 @@ def batch_eval(variable_params, constant_params, sample_size):
     print()
 
     # Make kwargs list
-    kwargs_list = make_kwargs_mesh(variable_params, constant_params)
+    kwargs_list = _make_kwargs_mesh(variable_params, constant_params)
+    kwargs_list = _fix_kwargs_scale(kwargs_list)
     kwargs_list = np.random.permutation(kwargs_list).tolist()
 
     # Calculate total function evaluations needed
@@ -97,12 +107,14 @@ def batch_eval(variable_params, constant_params, sample_size):
     for kwargs in kwargs_list:
         # Hndle sample_size > 1
         for i in range(sample_size):
-            # Create a copy of kwargs and change outfile_prefix to distinguish samples
+            # Create a copy of kwargs and change outfile_prefix to distinguish
+            # samples
             tmp_kwargs = copy.copy(kwargs)
-            tmp_kwargs["outfile_prefix"] = kwargs["outfile_prefix"] + '-' + str(i)
+            tmp_kwargs["outfile_prefix"] = kwargs[
+                "outfile_prefix"] + '-' + str(i)
 
             # Assign jobs to the async executor
-            fs.append(pool.submit(evaluate_model, tmp_kwargs))
+            fs.append(pool.submit(_evaluate_model, tmp_kwargs))
 
     print("Jobs assigned")
 
@@ -115,14 +127,14 @@ def batch_eval(variable_params, constant_params, sample_size):
 
     print("MODELS finished calculations")
     print("Current timestamp: {}".format(arch_start))
-    print("Average speed of funcevals: {} sec/funceval".format((arch_stop -
-                                                                arch_start) / total_func_evals))
+    print("Average speed of funcevals: {} sec/funceval".format(
+        (arch_stop - arch_start) / total_func_evals))
     print("Script finished successfully in {} seconds".format(
         int(arch_stop - arch_start)))
 
 
 def main():
-    # Setup parameters
+    # Sample Setup parameters
     sample_size = 1
     variable_params = {'popsize': (4, 80, 2), 'npairs': (1, 80, 2),
                        'ngames': (1, 30, 2), 'dropout_rate': (1, 50, 2),
@@ -130,9 +142,10 @@ def main():
     constant_params = {'generations': 20, 'model': eg.Chicken(),
                        'outfolder': "testsample",
                        'outfile_prefix': 'ee'}
-    batch_eval(variable_params=variable_params,
-               constant_params=constant_params,
-               sample_size=sample_size)
+    # batch_eval(variable_params=variable_params,
+    #            constant_params=constant_params,
+    #            sample_size=sample_size)
+    print("Direct usage is not supported! Please, load as module.")
 
 if __name__ == '__main__':
     main()

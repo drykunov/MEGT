@@ -775,9 +775,9 @@ class EvolutionaryEquilibrium(object):
 
         self._generations = generations
         self._metadata["generations"] = self._generations
-        self._mt_rate = mutation_magnitude * 0.01
+        self._mt_rate = mutation_magnitude
         self._metadata["mt_magnitude"] = self._mt_rate
-        self._dropout_rate = dropout_rate * 0.01
+        self._dropout_rate = dropout_rate
         self._metadata["dropout_rate"] = self._dropout_rate
         self._npairs = npairs
         self._metadata["npairs"] = self._npairs
