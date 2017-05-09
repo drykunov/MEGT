@@ -746,6 +746,7 @@ class EvolutionaryEquilibrium(object):
                  log_payoffs=False,
                  outfolder="output", outfile_prefix="ee",
                  local_run=True,
+                 termination_condition=None,
                  stream_progress=False, progress_bar=None):
 
         # Saving initial params for __repr__ method
@@ -785,6 +786,9 @@ class EvolutionaryEquilibrium(object):
         self._metadata["ngames"] = self._ngames
         self._popsize = popsize
         self._metadata["popsize"] = self._popsize
+
+        self._termination_condition = termination_condition
+        self._metadata["termination_condition"] = self._termination_condition
 
         # Initialize current generation counter
         self._generation = 0
@@ -966,7 +970,8 @@ class EvolutionaryEquilibrium(object):
 
         # Open file named as ee_{}_{}_{}_{}_{}.txt
         # Write to the file metadata of simulation
-        with open(self._outfolder + self._outname + '_metadata.txt', mode="w") as outfile:
+        with open(self._outfolder + self._outname + '_metadata.txt',
+                  mode="w") as outfile:
             json.dump(self._metadata, outfile, indent=4)
 
     ######################################
@@ -1014,6 +1019,7 @@ class EvolutionaryEquilibrium(object):
                                       and self._progress_bar is None):
             self._init_progress_bar(generations)
 
+        # Evaluate and update specified amount of generations
         for i in range(generations):
             # Calculate fitness and sort species
             self._evaluate_generation(npairs=npairs, ngames=ngames)
@@ -1025,6 +1031,34 @@ class EvolutionaryEquilibrium(object):
                     logging.debug(
                         "Unable to log generation - log file is closed")
 
+            # Calculate and check termination condition
+            if self._termination_condition == 'pure':
+                curr_gen_strategies = []
+
+                # If it is the first generation,
+                # then initialize prev_gen_strategies as zeros
+                if i == 0:
+                    prev_gen_strategies = []
+                    for subp in self.pop:
+                        prev_gen_strategies.append(np.zeros(1))
+
+                # Collect strategies of best fit individuals
+                for subp in self.pop:
+                    curr_gen_strategies.append(subp[0]._strategy)
+
+                termination_criterion = 1
+                # Multiple strategies for previous and current population's
+                # best specie element-wise
+                # It will give 1 only if it was pure strategy that didn't
+                # change
+                for prev_strat, curr_strat in zip(prev_gen_strategies, curr_gen_strategies):
+                    termination_criterion *= np.sum(prev_strat * curr_strat)
+
+                if termination_criterion == 1:
+                    break
+                else:
+                    prev_gen_strategies = curr_gen_strategies
+
             # Create new generation
             self._update_generation_truncation(dropout_rate=dropout_rate,
                                                mutation_magnitude=mutation_rate)
@@ -1035,7 +1069,7 @@ class EvolutionaryEquilibrium(object):
             if self._stream_progress:
                 self._progress_bar.update(1)
 
-        # Calculate weights for the final generation
+        # Calculate fitness for the final generation
         self._evaluate_generation(npairs=npairs, ngames=ngames)
         # Log final generation
         if self._log_generations:
