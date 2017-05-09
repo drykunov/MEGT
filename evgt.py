@@ -659,6 +659,11 @@ class SubPopulation(object):
         else:
             del(self._population[key])
 
+    def __setitem__(self, key, value):
+        if not isinstance(value, DecisionSet):
+            raise ValueError("assigning value must be inst of DecisionSet()")
+        self._population[key] = value
+
     def __str__(self):
         output = []
         output.append("Subpop / size {} of {} / {} / {}".format(len(self),
@@ -764,6 +769,7 @@ class EvolutionaryEquilibrium(object):
                  outfolder="output", outfile_prefix="ee",
                  local_run=True,
                  termination_condition=None,
+                 correlate_symmetry=False,
                  stream_progress=False, progress_bar=None):
 
         # Saving initial params for __repr__ method
@@ -806,6 +812,9 @@ class EvolutionaryEquilibrium(object):
 
         self._termination_condition = termination_condition
         self._metadata["termination_condition"] = self._termination_condition
+
+        self._correlate_symmetry = correlate_symmetry
+        self._metadata["correlate_symmetry"] = self._correlate_symmetry
 
         # Initialize current generation counter
         self._generation = 0
@@ -1036,6 +1045,19 @@ class EvolutionaryEquilibrium(object):
                                       and self._progress_bar is None):
             self._init_progress_bar(generations)
 
+        # If correlate_symmetry = True,
+        # then substitute second subpopulation with copy of the first
+        if self._correlate_symmetry == True:
+            tmp_pl_type = self.pop[1].pl_type
+            self.pop[1] = copy.deepcopy(self.pop[0])
+            self.pop[1].pl_type = tmp_pl_type
+
+            for idx, ds in enumerate(self.pop[1]):
+                # tmp_ds = copy.copy(ds)
+                # tmp_ds.pl_type = tmp_pl_type
+                # self.pop[1][idx] = tmp_ds
+                self.pop[1][idx].pl_type = tmp_pl_type
+
         # Evaluate and update specified amount of generations
         for i in range(generations):
             # Calculate fitness and sort species
@@ -1079,6 +1101,20 @@ class EvolutionaryEquilibrium(object):
             # Create new generation
             self._update_generation_truncation(dropout_rate=dropout_rate,
                                                mutation_magnitude=mutation_rate)
+
+            # If correlate_symmetry = True,
+            # then substitute second subpopulation with copy of the first
+            if self._correlate_symmetry == True:
+                tmp_pl_type = self.pop[1].pl_type
+                self.pop[1] = copy.deepcopy(self.pop[0])
+                self.pop[1].pl_type = tmp_pl_type
+
+                for idx, ds in enumerate(self.pop[1]):
+                    # tmp_ds = copy.copy(ds)
+                    # tmp_ds.pl_type = tmp_pl_type
+                    # self.pop[1][idx] = tmp_ds
+                    self.pop[1][idx].pl_type = tmp_pl_type
+
             # Increment population counter
             self._generation += 1
 
@@ -1086,15 +1122,18 @@ class EvolutionaryEquilibrium(object):
             if self._stream_progress:
                 self._progress_bar.update(1)
 
-        # Calculate fitness for the final generation
-        self._evaluate_generation(npairs=npairs, ngames=ngames)
-        # Log final generation
-        if self._log_generations:
-            try:
-                self._log_gen_write(self.pop, self._generation)
-                self._log_gen_close()
-            except ValueError:
-                logging.debug("Unable to log generation - log file is closed")
+        # Handle last generation if needed
+        if (self._termination_condition == None) or (termination_criterion != 1):
+            # Calculate fitness for the final generation
+            self._evaluate_generation(npairs=npairs, ngames=ngames)
+            # Log final generation
+            if self._log_generations:
+                try:
+                    self._log_gen_write(self.pop, self._generation)
+                    self._log_gen_close()
+                except ValueError:
+                    logging.debug(
+                        "Unable to log generation - log file is closed")
 
         # Close progress bar if needed
         if self._progress_bar_own:
