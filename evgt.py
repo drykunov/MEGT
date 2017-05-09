@@ -382,8 +382,8 @@ class DiscreteDecisionSet(DecisionSet):
     def _mutate_all(self, magnitude):
         """Mutate a DDS without output."""
         if not math.isclose(magnitude, 0):
-            strat_candidates = self._strategy + np.random.normal(0, magnitude,
-                                                                 len(self._strategy))
+            strat_candidates = self._strategy + np.random.normal(
+                0, magnitude, len(self._strategy))
         else:
             strat_candidates = self._strategy
         strat_candidates = np.clip(strat_candidates, 0, 1)
@@ -511,8 +511,8 @@ class Player(object):
 
     def __repr__(self):
         output = []
-        output.append("{} / {} decision sets:".format(self.name,
-                                                      len(self.decision_space)))
+        output.append("{} / {} decision sets:".format(
+            self.name, len(self.decision_space)))
         for ds in self.decision_space:
             output.append(textwrap.indent(repr(ds), "    "))
         output.append("")
@@ -724,7 +724,8 @@ class Population(object):
     def __repr__(self):
         output = []
         output.append(
-            "Population : (size = {} / subpopulations = {})".format(self._popsize, len(self._population)))
+            "Population : (size = {} / subpopulations = {})".format(
+                self._popsize, len(self._population)))
 
         for subp in self._population:
             # output.append("  Subpop {}".format(ds_at))
@@ -836,9 +837,6 @@ class EvolutionaryEquilibrium(object):
 
         # Record metadata
         self._record_metadata()
-
-
-
 
     def _init_progress_bar(self, total_iters):
         del(self._progress_bar)
@@ -1096,7 +1094,6 @@ class EvolutionaryEquilibrium(object):
 
         # Make matchings and evaluate them
         matchings = self.make_matchings(npairs)
-        
 
         # pdb.set_trace()
         # pool = futures.ThreadPoolExecutor(max_workers=30)
@@ -1107,7 +1104,6 @@ class EvolutionaryEquilibrium(object):
         # with futures.ThreadPoolExecutor() as executor:
         #     executor.map(self.calculate_payoffs, matchings)
         #     executor.shutdown(wait=True)
-        
 
         # --- One-by-one execution variant
         for matching in matchings:
