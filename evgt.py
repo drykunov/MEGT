@@ -1110,7 +1110,10 @@ class EvolutionaryEquilibrium(object):
 
         for subp in self.pop:
             # Calculate number of species to drop
-            to_drop = math.ceil(len(subp) * dropout_rate)
+            to_drop = math.floor(len(subp) * dropout_rate)
+            # Ensure that at least one individual is dropped from subpopulation
+            if to_drop == 0:
+                to_drop = 1
             # Drop underperforming species
             del subp[-to_drop:]
 
