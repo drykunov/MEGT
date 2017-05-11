@@ -61,6 +61,7 @@ def batch_eval(variable_params, constant_params, sample_size):
 
     print("Variable params:", variable_params)
     print("Constant params:", constant_params)
+    print("Sample size:", sample_size)
     print()
 
     # Make kwargs list
