@@ -28,6 +28,10 @@ def main():
 
     print()
     print("Reading metadata from: {}".format(args.output_folder))
+
+    # Create output folder if needed
+    if not os.path.exists(os.path.dirname(args.pickel_destination)):
+        os.makedirs(args.pickel_destination)
     print("Pickled processed data would be written to: {}".format(
         args.pickel_destination))
     print()
