@@ -17,14 +17,10 @@ from logging.handlers import MemoryHandler
 import random
 from operator import attrgetter
 # import pandas as pd
-import pdb
 import json
 import csv
 import time
 import os
-from functools import reduce
-from tqdm import tqdm, tqdm_notebook
-from concurrent import futures
 import uuid
 from games import *
 
@@ -834,7 +830,7 @@ class EvolutionaryEquilibrium(object):
 
             # If correlate_symmetry = True,
             # then substitute second subpopulation with copy of the first
-            if self._correlate_symmetry == True:
+            if self._correlate_symmetry is True:
                 tmp_pl_type = self.pop[1].pl_type
                 self.pop[1] = copy.deepcopy(self.pop[0])
                 self.pop[1].pl_type = tmp_pl_type
@@ -853,7 +849,7 @@ class EvolutionaryEquilibrium(object):
                 self._progress_bar.update(1)
 
         # Handle last generation if needed
-        if (self._termination_condition == None) or (termination_criterion != 1):
+        if (self._termination_condition is None) or (termination_criterion != 1):
             # Calculate fitness for the final generation
             self._evaluate_generation(npairs=npairs, ngames=ngames)
             # Log final generation
@@ -918,7 +914,6 @@ class EvolutionaryEquilibrium(object):
         # Make matchings and evaluate them
         matchings = self.make_matchings(npairs)
 
-        # pdb.set_trace()
         # pool = futures.ThreadPoolExecutor(max_workers=30)
         # for matching in matchings:
         #     pool.submit(self.calculate_payoffs, matching)
