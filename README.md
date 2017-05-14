@@ -3,7 +3,7 @@
 
 ## Dependencies
 Code was tested with the following software:
-'''
+```
 Python:
 Python 3.6.1 |Anaconda custom (x86_64)| (default, Mar 22 2017, 19:25:17) 
 [GCC 4.2.1 Compatible Apple LLVM 6.0 (clang-600.0.57)] on darwin
@@ -44,7 +44,7 @@ tidyverse 1.1.1
 stargazer 5.2
 plyr 1.8.4
 
-'''
+```
 
 ## License
 
